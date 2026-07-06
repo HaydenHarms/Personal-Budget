@@ -19,6 +19,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const TYPE_LABELS = { income: 'Income', expense: 'Expenses', savings: 'Savings' }
 const SLICE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4']
 const OTHER_COLOR = '#94a3b8'
+const SERIES_COLORS = { income: '#22c55e', expense: '#ef4444', savings: '#3b82f6' }
 
 function monthOf(dateStr) {
   return Number(dateStr.slice(5, 7))
@@ -173,24 +174,27 @@ export default function Dashboard() {
     return result
   }, [breakdown])
 
-  const monthlyExpenseChart = useMemo(() => {
-    const trackedByMonth = Array(12).fill(0)
-    const budgetByMonth = Array(12).fill(0)
+  const monthlyChart = useMemo(() => {
+    const tracked = { income: Array(12).fill(0), expense: Array(12).fill(0), savings: Array(12).fill(0) }
+    const budget = { income: Array(12).fill(0), expense: Array(12).fill(0), savings: Array(12).fill(0) }
 
     for (const t of txns) {
-      if (t.type !== 'expense') continue
-      trackedByMonth[monthOf(t.effective_date) - 1] += Number(t.amount)
+      tracked[t.type][monthOf(t.effective_date) - 1] += Number(t.amount)
     }
     for (const r of budgetRows) {
       const cat = categoriesById[r.category_id]
-      if (cat?.type !== 'expense') continue
-      budgetByMonth[r.month - 1] += Number(r.amount)
+      if (!cat) continue
+      budget[cat.type][r.month - 1] += Number(r.amount)
     }
 
     return MONTHS.map((m, i) => ({
       month: m,
-      tracked: trackedByMonth[i],
-      budget: budgetByMonth[i],
+      income: tracked.income[i],
+      budget_income: budget.income[i],
+      expense: tracked.expense[i],
+      budget_expense: budget.expense[i],
+      savings: tracked.savings[i],
+      budget_savings: budget.savings[i],
       isSelected: resolvedMonth === i + 1,
     }))
   }, [txns, budgetRows, categoriesById, resolvedMonth])
@@ -335,26 +339,53 @@ export default function Dashboard() {
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-8">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          Expenses: tracked vs. budget by month
-        </h3>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={monthlyExpenseChart}>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Tracked vs. budget by month
+          </h3>
+          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <svg width="14" height="14">
+                <rect x="1" y="1" width="12" height="12" fill="none" stroke="#94a3b8" strokeWidth="2" />
+              </svg>
+              Budget
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg width="14" height="14">
+                <rect x="1" y="1" width="12" height="12" fill="#94a3b8" />
+              </svg>
+              Tracked
+            </span>
+            {['income', 'expense', 'savings'].map((type) => (
+              <span key={type} className="flex items-center gap-1.5">
+                <svg width="14" height="14">
+                  <rect x="1" y="1" width="12" height="12" fill={SERIES_COLORS[type]} />
+                </svg>
+                {TYPE_LABELS[type]}
+              </span>
+            ))}
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={monthlyChart} barGap={-14}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip formatter={(v) => Number(v).toFixed(2)} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="budget" name="Budget" fill="#94a3b8">
-              {monthlyExpenseChart.map((entry) => (
-                <Cell key={entry.month} fillOpacity={!resolvedMonth || entry.isSelected ? 1 : 0.35} />
-              ))}
-            </Bar>
-            <Bar dataKey="tracked" name="Tracked" fill="#6366f1">
-              {monthlyExpenseChart.map((entry) => (
-                <Cell key={entry.month} fillOpacity={!resolvedMonth || entry.isSelected ? 1 : 0.35} />
-              ))}
-            </Bar>
+            {['income', 'expense', 'savings'].map((type) => (
+              <Bar key={`budget_${type}`} dataKey={`budget_${type}`} name={`${TYPE_LABELS[type]} budget`} legendType="none" fill="transparent" stroke={SERIES_COLORS[type]} strokeWidth={2} barSize={18}>
+                {monthlyChart.map((entry) => (
+                  <Cell key={entry.month} strokeOpacity={!resolvedMonth || entry.isSelected ? 1 : 0.3} />
+                ))}
+              </Bar>
+            ))}
+            {['income', 'expense', 'savings'].map((type) => (
+              <Bar key={type} dataKey={type} name={`${TYPE_LABELS[type]} tracked`} legendType="none" fill={SERIES_COLORS[type]} fillOpacity={0.85} barSize={12}>
+                {monthlyChart.map((entry) => (
+                  <Cell key={entry.month} fillOpacity={!resolvedMonth || entry.isSelected ? 0.85 : 0.25} />
+                ))}
+              </Bar>
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </div>

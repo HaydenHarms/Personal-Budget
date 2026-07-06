@@ -242,5 +242,23 @@ clone with no extra remotes, only relevant if the user edits files there directl
   value was unchanged (150 before and after — proving no refetch or data loss), zero console
   errors. Other years remained independently expanded throughout.
 
-### Step 3 — Bar chart fix: tracked vs. budget overlay (not started)
+### Step 3 — Bar chart fix: tracked vs. budget overlay (done)
+- `src/pages/Dashboard.jsx`: replaced the old 4-series chart (Income/Expenses/Savings tracked +
+  a separate standalone "Budget" bar) with 3 outline/filled pairs — one per type — using
+  Recharts' `barGap={-14}` to make each pair overlap at the same x-position rather than sit
+  side by side (the spec's sample code didn't specify how to achieve the overlap; grouped bars
+  in Recharts sit side-by-side by default, so this was the piece that needed figuring out).
+  Budget renders as a `fill="transparent"` bar with a colored stroke (wider, `barSize={18}`);
+  tracked renders as a filled bar of the same color (narrower, `barSize={12}`), so the budget
+  outline peeks out around the tracked bar. Replaced Recharts' auto-generated 6-entry `<Legend>`
+  (which would've shown `budget_income`, `income`, etc.) with a small custom legend: one
+  outline/filled swatch pair labeled "Budget"/"Tracked", plus one color swatch per type.
+  `monthlyExpenseChart` (expense-only) was replaced by `monthlyChart`, which now aggregates
+  tracked and budget for all three types per month.
+- **Verified in the running dev app against real data**: confirmed all 3 series render as
+  correctly-colored overlapping outline+filled pairs per month, confirmed switching the period
+  selector to a specific month (March) dims every other month's bars while March stays fully
+  opaque, confirmed "Total Year" shows all months at full opacity with no dimming, zero console
+  errors.
+
 ### Step 4 — Sankey diagram (not started)
