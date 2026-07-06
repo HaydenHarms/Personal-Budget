@@ -1,6 +1,7 @@
 # Progress
 
-## Status: Phase 0-8 done and verified. Starting Phase 9 (PWA Packaging).
+## Status: Phase 0-9 done and verified. Phase 10 (Polish & Deploy) needs a decision from the user
+about the GitHub repo before proceeding, since it involves creating/pushing to a remote.
 
 ### Done
 - Git repo initialized at project root.
@@ -132,8 +133,29 @@ save, and Phase 8 (Data Migration) populates categories/budget/transactions from
   exactly reproduces the original Excel formula's behavior. Confirmed live in the browser
   (Dashboard, Planning, Tracking all render the real data with zero console errors).
 
+- **Phase 9 — PWA Packaging**: added `vite-plugin-pwa` (workbox-based, generates the manifest and
+  service worker rather than hand-rolling one). App icons (`public/icons/icon-192.png` and
+  `icon-512.png`) rendered from a simple indigo "$" mark matching the app's brand color, since
+  there was no existing app icon to reuse. `apple-touch-icon` and `theme-color` added to
+  `index.html` for iOS.
+- **Phase 9 DoD verified**: built + served the production bundle via `vite preview`, confirmed
+  the manifest serves valid JSON (name, 3 icons, `display: standalone`), confirmed the service
+  worker registers and reaches `active` state, then went fully offline and reloaded — the app
+  shell (login screen) rendered completely with zero network connectivity, exactly matching the
+  "app shell loads offline, data still requires connectivity" requirement.
+- **Known deferred item**: `vite.config.js`'s PWA `start_url`/`scope` are set to `/`, which is
+  correct for the dev/preview server but will need revisiting once Phase 10 picks an actual
+  GitHub Pages repo name (Pages serves from a subpath like `/repo-name/`, not root) — noted here
+  so it isn't forgotten.
+
 ### Next
-1. Phase 9 — PWA Packaging (manifest, service worker, icons, installable on phone + desktop).
+1. Phase 10 — Polish & Deploy. **Needs a decision from the user first**: this phase creates a
+   GitHub repository, pushes this code to it, and deploys to GitHub Pages — the first phase that
+   touches a shared/remote system rather than purely local files or the user's own Supabase
+   account. Needs: (a) does a GitHub remote already exist or should one be created, (b) desired
+   repo name/visibility, (c) explicit go-ahead to push. Once resolved, revisit `vite.config.js`'s
+   `base` path and the PWA manifest's `start_url`/`scope` to match the real Pages subpath before
+   the final deploy.
 2. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN
