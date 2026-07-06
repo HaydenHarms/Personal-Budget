@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/AuthContext'
+import SankeyChart from '../components/SankeyChart'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const TYPE_LABELS = { income: 'Income', expense: 'Expenses', savings: 'Savings' }
@@ -45,6 +46,7 @@ export default function Dashboard() {
 
   const [yearMode, setYearMode] = useState('current')
   const [periodMode, setPeriodMode] = useState('total')
+  const [showMoneyFlow, setShowMoneyFlow] = useState(false)
 
   const resolvedYear = yearMode === 'current' ? currentYear : yearMode
   const resolvedMonth = periodMode === 'total' ? null : periodMode === 'current-month' ? currentMonth : periodMode
@@ -172,6 +174,25 @@ export default function Dashboard() {
       result[type] = data
     }
     return result
+  }, [breakdown])
+
+  const sankeyData = useMemo(() => {
+    const incomeCats = breakdown.filter((r) => r.type === 'income' && r.tracked > 0)
+    const outCats = breakdown.filter((r) => (r.type === 'expense' || r.type === 'savings') && r.tracked > 0)
+
+    if (incomeCats.length === 0 && outCats.length === 0) return { nodes: [], links: [] }
+
+    return {
+      nodes: [
+        ...incomeCats.map((c) => ({ id: `in:${c.id}`, name: c.name, type: 'income' })),
+        { id: 'hub', name: 'Income', type: 'hub' },
+        ...outCats.map((c) => ({ id: `out:${c.id}`, name: c.name, type: c.type })),
+      ],
+      links: [
+        ...incomeCats.map((c) => ({ source: `in:${c.id}`, target: 'hub', value: c.tracked })),
+        ...outCats.map((c) => ({ source: 'hub', target: `out:${c.id}`, value: c.tracked })),
+      ],
+    }
   }, [breakdown])
 
   const monthlyChart = useMemo(() => {
@@ -336,6 +357,22 @@ export default function Dashboard() {
             )}
           </div>
         ))}
+      </div>
+
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-8">
+        <button
+          type="button"
+          onClick={() => setShowMoneyFlow((v) => !v)}
+          className="w-full flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-300"
+        >
+          Money Flow
+          <span className="text-gray-400">{showMoneyFlow ? 'ˇ' : '›'}</span>
+        </button>
+        {showMoneyFlow && (
+          <div className="mt-4 overflow-x-auto">
+            <SankeyChart data={sankeyData} width={900} height={Math.max(sankeyData.nodes.length * 28, 240)} />
+          </div>
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-8">

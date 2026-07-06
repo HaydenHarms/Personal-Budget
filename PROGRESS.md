@@ -1,7 +1,8 @@
 # Progress
 
-## Status: v1.0 shipped. All 10 phases of BUILD_PLAN.md complete and verified. Now working
-through BUDGET_FIXES.md's 4-step post-launch spec (see bottom of this file for that section).
+## Status: v1.0 shipped. All 10 phases of BUILD_PLAN.md complete, plus all 4 steps of
+BUDGET_FIXES.md's post-launch spec (see bottom of this file). Only outstanding item: Step 1's CSV
+import script hasn't been run for real yet - no actual bank export exists to feed it.
 
 Live at https://haydenharms.github.io/Personal-Budget/
 
@@ -261,4 +262,28 @@ clone with no extra remotes, only relevant if the user edits files there directl
   opaque, confirmed "Total Year" shows all months at full opacity with no dimming, zero console
   errors.
 
-### Step 4 — Sankey diagram (not started)
+### Step 4 — Sankey diagram (done)
+- Installed `d3-sankey`. New `src/components/SankeyChart.jsx` (props: `data`, `width`, `height`)
+  computes node/link layout via `d3-sankey` and renders plain SVG — income category nodes on the
+  left (green), a single "Income" hub node in the middle, expense/savings category nodes on the
+  right (red/blue), with income labels right-aligned-to-the-left-of-node and expense/savings
+  labels left-aligned-to-the-right-of-node, avoiding overlap with the flows. Clicking a node
+  toggles `selectedNodeId`; links and nodes not touching the selected node dim to low opacity.
+  Renders a "No data for this period." message when there are no income or outflow categories
+  with tracked amounts.
+- **Bug found and fixed during testing**: initially crashed the entire React tree on first render
+  (blank white page, no error boundary to catch it) because the layout config called
+  `.nodeId((d) => d.id)` while the link `source`/`target` had already been pre-resolved to numeric
+  array indices in this component's own preprocessing step — that combination tells d3-sankey to
+  match indices against string ids, which never matches and throws inside the layout call.
+  Removed the redundant `.nodeId()` call since the indices are already correct without it.
+- `src/pages/Dashboard.jsx`: added a `sankeyData` memo built directly from the existing
+  `breakdown` array (income categories → hub → expense/savings categories, using `tracked`
+  amounts), and a collapsed-by-default "Money Flow" accordion section between the doughnut
+  charts and the bar chart, matching the spec's "so it doesn't crowd the existing summary."
+- **Verified in the running dev app against real data**: confirmed the accordion starts
+  collapsed, expanding renders 22 correctly-colored node rects with proportional flow widths,
+  clicking a leaf node produced exactly one link at `stroke-opacity: 0.35` while all 18 others
+  dropped to `0.08` (confirmed by reading the actual SVG attribute values, not just eyeballing
+  it), switching the year selector to 2029 (no data) correctly showed the empty-state message
+  instead of an empty/broken chart, zero console errors throughout.
