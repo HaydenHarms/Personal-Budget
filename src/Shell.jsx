@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { useAuth } from './lib/AuthContext'
 import Placeholder from './pages/Placeholder'
+import SettingsPage from './pages/Settings'
 
 const NAV_ITEMS = ['Planning', 'Tracking', 'Dashboard', 'Savings', 'Asset Allocation', 'Settings']
+
+const PAGES = {
+  Settings: SettingsPage,
+}
 
 export default function Shell() {
   const { user, signOut } = useAuth()
   const [active, setActive] = useState('Dashboard')
+  const ActivePage = PAGES[active]
 
   return (
     <div className="min-h-svh flex flex-col md:flex-row bg-gray-50 dark:bg-gray-950">
@@ -43,7 +49,7 @@ export default function Shell() {
       </nav>
 
       <main className="flex-1">
-        <Placeholder title={active} />
+        {ActivePage ? <ActivePage /> : <Placeholder title={active} />}
       </main>
     </div>
   )

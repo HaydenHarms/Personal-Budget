@@ -1,6 +1,6 @@
 # Progress
 
-## Status: Phase 0 and Phase 1 done and verified. Starting Phase 2 (Settings module).
+## Status: Phase 0, 1, 2 done and verified. Starting Phase 3 (Categories & Planning grid).
 
 ### Done
 - Git repo initialized at project root.
@@ -35,10 +35,16 @@ under an old user ID. Not currently blocking anything: Phase 2 upserts a `settin
 save, and Phase 8 (Data Migration) populates categories/budget/transactions from
 `Personal_Budget.xlsx` under the current user ID regardless. See `BLOCKERS.md` for detail.
 
+- `src/pages/Settings.jsx` — bound to the `settings` table (starting year, shift-late-income
+  toggle + day, savings rate method), upserts on save. Wired into `Shell.jsx`.
+- **Phase 2 DoD verified**: upsert + reload round-trip tested directly against Supabase (set
+  test values, reloaded, confirmed match), then reset the row back to schema defaults
+  (starting_year = current year, shift active, day 25, method active) so no test data was left
+  in the real account.
+
 ### Next
-1. Phase 2 — Settings module (bind to `settings` table, upsert on save).
-2. Phase 3 — Categories & Budget Planning grid (6-year grid, balance-check row).
-3. Continue phases in order per `BUILD_PLAN.md` section 7.
+1. Phase 3 — Categories & Budget Planning grid (6-year grid, balance-check row).
+2. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN
 - None yet. Schema and BUILD_PLAN followed as written.
