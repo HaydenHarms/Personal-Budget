@@ -1,7 +1,8 @@
 # Progress
 
-## Status: Phase 0-9 done and verified. Phase 10 (Polish & Deploy) needs a decision from the user
-about the GitHub repo before proceeding, since it involves creating/pushing to a remote.
+## Status: v1.0 shipped. All 10 phases of BUILD_PLAN.md complete and verified.
+
+Live at https://haydenharms.github.io/Personal-Budget/
 
 ### Done
 - Git repo initialized at project root.
@@ -148,15 +149,41 @@ save, and Phase 8 (Data Migration) populates categories/budget/transactions from
   GitHub Pages repo name (Pages serves from a subpath like `/repo-name/`, not root) — noted here
   so it isn't forgotten.
 
-### Next
-1. Phase 10 — Polish & Deploy. **Needs a decision from the user first**: this phase creates a
-   GitHub repository, pushes this code to it, and deploys to GitHub Pages — the first phase that
-   touches a shared/remote system rather than purely local files or the user's own Supabase
-   account. Needs: (a) does a GitHub remote already exist or should one be created, (b) desired
-   repo name/visibility, (c) explicit go-ahead to push. Once resolved, revisit `vite.config.js`'s
-   `base` path and the PWA manifest's `start_url`/`scope` to match the real Pages subpath before
-   the final deploy.
-2. Continue phases in order per `BUILD_PLAN.md` section 7.
+### Phase 10 — Polish & Deploy (complete)
+- Repo: `https://github.com/HaydenHarms/Personal-Budget` — created via GitHub Desktop by the
+  user, linked as `origin` to the existing local repo (merged in GitHub Desktop's placeholder
+  `.gitattributes` commit with `--allow-unrelated-histories` rather than force-pushing over it),
+  pushed to `main`.
+- Set `vite.config.js`'s `base` and the PWA manifest's `start_url`/`scope` to `/Personal-Budget/`
+  to match the real Pages subpath (was `/` during earlier phases). Switched `index.html`'s
+  favicon/apple-touch-icon links to Vite's `%BASE_URL%` placeholder so they resolve under the
+  subpath too.
+- **Mobile-first responsive pass**: checked every page at an iPhone 13 viewport (Playwright +
+  `devices['iPhone 13']`) against the locally-served production build. Nav wraps correctly into a
+  top bar, forms stack cleanly, and the intentionally wide data grids (Planning's 72-column
+  budget grid, Tracking's ledger) scroll horizontally within their own container rather than
+  breaking the page layout — a standard, acceptable pattern for dense financial tables on
+  mobile. Zero console errors across all six pages.
+- **Deployment**: added `gh-pages` devDependency and an `npm run deploy` script
+  (`build` then `gh-pages -d dist`) — a plain static push to the `gh-pages` branch, no CI/CD
+  secrets needed since the Supabase anon key is safe to ship client-side and RLS is the real
+  security boundary. Ran it once; published successfully.
+  **One manual step was required**: GitHub Pages was already enabled but pointed at the `main`
+  branch (serving raw, unbuilt source) rather than `gh-pages`. I don't have `gh` CLI or API
+  access on this machine to change that setting programmatically, so the user changed it manually
+  in Settings → Pages → Source. Live and confirmed working immediately after.
+- **DoD verified against the real deployed URL** (not just local build): logged in and reached
+  the Dashboard successfully on both a desktop viewport and an iPhone 13 viewport, confirmed the
+  service worker reaches `active` state in production, confirmed zero console errors on both.
+- Side-by-side QA against the Excel workbook was already covered thoroughly during Phase 8's
+  verification (exact-match cross-checks across 3 months spanning both years, using the
+  workbook's own formula-computed values as the independent source of truth) — not repeated here.
+
+### v1.0 — all phases complete
+Tagged `v1.0` in git. Nothing outstanding from `BUILD_PLAN.md`. Natural next steps if this project
+continues would be user-driven (e.g., filling in real Asset Allocation targets, addressing the
+`825KB` JS bundle size warning via code-splitting if load time ever becomes noticeable) rather
+than anything required by the original spec.
 
 ### Notes / deviations from BUILD_PLAN
 - None yet. Schema and BUILD_PLAN followed as written.
