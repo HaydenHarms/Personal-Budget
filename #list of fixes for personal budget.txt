@@ -1,0 +1,6 @@
+#list of fixes for personal budget:
+
+- make a claude code skill to automatically update supabase with transactions from csv.
+- feature to collapse years on planning tab
+- fix bar chart so that it has income, expenses, and savings with tracked:budget being transparent:filled on the chart
+- add Sankey diagram

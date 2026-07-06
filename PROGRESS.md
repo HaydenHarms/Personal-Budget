@@ -1,6 +1,7 @@
 # Progress
 
-## Status: v1.0 shipped. All 10 phases of BUILD_PLAN.md complete and verified.
+## Status: v1.0 shipped. All 10 phases of BUILD_PLAN.md complete and verified. Now working
+through BUDGET_FIXES.md's 4-step post-launch spec (see bottom of this file for that section).
 
 Live at https://haydenharms.github.io/Personal-Budget/
 
@@ -187,3 +188,44 @@ than anything required by the original spec.
 
 ### Notes / deviations from BUILD_PLAN
 - None yet. Schema and BUILD_PLAN followed as written.
+
+---
+
+## BUDGET_FIXES.md — post-launch fix spec
+
+`BUDGET_FIXES.md` was found in the GitHub Desktop clone at
+`C:\Users\harms\Documents\GitHub\Personal Budget` (a second local clone of the same repo, one
+commit behind this working copy) and copied here. That clone folder still exists — it's a plain
+clone with no extra remotes, only relevant if the user edits files there directly again.
+
+### Step 1 — CSV → Supabase transaction import script (done)
+- `scripts/import-csv.js` (ESM, matches this project's `"type": "module"`). Reads Supabase
+  credentials the same way `scripts/migrate.cjs` does (`.env.local` + `supabase connection.txt`,
+  never hardcoded/committed). Added `dotenv` and `csv-parse` as devDependencies.
+- Implements every filter in order: Posted-only, transfer-description skip, credit/refund vs.
+  income-credit distinction, then dedup against existing Supabase rows for the CSV's date range
+  (`date|amount|details` key). Merchant-name cleaning strips the noise patterns listed in the
+  spec. Archives the source file to `AccountHistory(n+1).csv` on a real (non-dry-run) run.
+- **Spec gap found and resolved**: the category-mapping table only covers expense merchants —
+  there was no rule for income credits (e.g. "...Payroll"). Mapped all income-type rows to the
+  `Employment` category (it already exists from the Phase 8 migration and is the obvious fit)
+  rather than letting them fall through to "Miscellaneous", which is what happened before the fix
+  and would have been a confusing default for a paycheck.
+- Added a `--dry-run` flag (not in the original spec, same pattern as `scripts/migrate.cjs`) —
+  there's no real bank CSV yet, so this was the only way to verify the logic without writing
+  fabricated test transactions into the real account. In dry-run mode it now prints exactly what
+  it would import (date/type/amount/category/details), not just counts.
+- **Verified** with a constructed test CSV covering every branch: a clean expense merchant match
+  (Food), an income/Payroll row (now correctly → Employment), a noisy description needing
+  cleanup (leading ref number + "POS PURCHASE" + trailing "Dallas TX" all stripped correctly), a
+  Pending row (skipped), a Zelle transfer (skipped), a merchant refund credit (skipped, not
+  income), an unmatched merchant (→ Miscellaneous + flagged for review), and one deliberately
+  duplicated real transaction (`2026-07-03, Target, $38.50` — confirmed via a live read-only
+  query first) which was correctly skipped as a duplicate. A second row also turned out to match
+  an existing real transaction by coincidence, confirming dedup catches unplanned collisions too.
+  Counts and per-row output all matched expectations; zero rows written to the real account.
+- **Not yet run for real** — waiting on an actual bank CSV export from the user.
+
+### Step 2 — Collapsible years on Planning tab (not started)
+### Step 3 — Bar chart fix: tracked vs. budget overlay (not started)
+### Step 4 — Sankey diagram (not started)
