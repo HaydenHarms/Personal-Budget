@@ -1,6 +1,6 @@
 # Progress
 
-## Status: Phase 0-4 done and verified. Starting Phase 5 (Dashboard).
+## Status: Phase 0-5 done and verified. Starting Phase 6 (Savings Goal Envelopes).
 
 ### Done
 - Git repo initialized at project root.
@@ -64,8 +64,32 @@ save, and Phase 8 (Data Migration) populates categories/budget/transactions from
   computed correctly across income/expense, edit and delete both verified, zero console errors.
   Test categories and transactions cleaned up afterward.
 
+- `src/pages/Dashboard.jsx` — Year selector (Current Year / specific year from the 6-year range) +
+  Period selector (Total Year / Current Month / specific month), breakdown table (Tracked,
+  Budget, % Complete, Remaining, Excess per category, sorted by tracked descending regardless of
+  type per BUILD_PLAN section 5), doughnut charts (top-5 + Other) for Income/Expenses/Savings,
+  KPI tiles (period balance, savings rate per settings method, % of period elapsed, days since
+  last transaction). All aggregation keys off `effective_date`, never the raw transaction `date`.
+- **Decision**: the bar chart ("tracked vs. budget by month" per BUILD_PLAN section 7) shows
+  **Expenses only** — the spec didn't say which type, and expense-vs-budget is the standard
+  budget-adherence chart. Selected month is highlighted at full opacity, other months dimmed to
+  0.35 opacity; no dimming when the period is "Total Year". Documented here since it's a judgment
+  call, not a literal spec requirement.
+- **Phase 5 DoD verified end-to-end in headless Chromium**: seeded one category of each type with
+  a current-month budget and a matching transaction, confirmed the breakdown table sorted by
+  tracked descending (3000 > 1000 > 500) with correct %/remaining/excess math, confirmed KPI tiles
+  computed correctly (period balance 1500 = 3000 − 1000 − 500, savings rate 16.7% = 500/3000),
+  switched the period selector to an empty month and confirmed every chart, tile, and table row
+  recomputed to zero/appropriate values, confirmed 9 chart `<svg>` elements rendered, zero console
+  errors. Cleaned up test data afterward.
+- **Test-harness note (not a product bug)**: automated rapid-fire category additions (three
+  `<select>`-driven submits back-to-back with zero delay) intermittently submitted the previous
+  render's stale type value. Confirmed via network inspection that adding a 500ms pause between
+  submissions eliminates it completely — not reproducible at anything resembling human typing
+  speed. No app code changed; noting it here in case future automated tests hit the same thing.
+
 ### Next
-1. Phase 5 — Dashboard (year/period selectors, breakdown table, doughnut + bar charts, KPI tiles).
+1. Phase 6 — Savings Goal Envelopes (CRUD for `savings_goals`, progress bars, totals).
 2. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN
