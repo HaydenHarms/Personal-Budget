@@ -226,6 +226,21 @@ clone with no extra remotes, only relevant if the user edits files there directl
   Counts and per-row output all matched expectations; zero rows written to the real account.
 - **Not yet run for real** — waiting on an actual bank CSV export from the user.
 
-### Step 2 — Collapsible years on Planning tab (not started)
+### Step 2 — Collapsible years on Planning tab (done)
+- `src/pages/Planning.jsx`: added `collapsedYears` state (a `Set` of year numbers) and a
+  `yearTotals` memo (annual income/expense/savings/remaining/balanced, derived by summing the
+  existing per-month `monthTotals` across all 12 months of that year — no new data fetch).
+  Clicking a year header toggles it; collapsed years render one "Total" column (chevron `›`)
+  instead of 12 month columns (chevron `ˇ`), showing each category's annual sum
+  (`getCategoryYearTotal`) and the annual balanced-check on the "To be allocated" row. All
+  `colSpan`s (year header, type-section header) now compute dynamically off collapsed state
+  instead of the old hardcoded `12`/`1 + years.length * 12`.
+- **Verified in the running dev app against real data**: collapsed 2025, confirmed the chevron
+  flipped, confirmed Employment's month-input count dropped by exactly 12 (72 → 60, i.e. exactly
+  one year's worth), confirmed the displayed annual total (11,440) exactly matches the original
+  Excel workbook's own "Total" column for that category/year, re-expanded and confirmed the Jan
+  value was unchanged (150 before and after — proving no refetch or data loss), zero console
+  errors. Other years remained independently expanded throughout.
+
 ### Step 3 — Bar chart fix: tracked vs. budget overlay (not started)
 ### Step 4 — Sankey diagram (not started)

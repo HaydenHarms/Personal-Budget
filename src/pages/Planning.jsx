@@ -14,6 +14,7 @@ export default function Planning() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [newCategory, setNewCategory] = useState({ type: 'income', name: '' })
+  const [collapsedYears, setCollapsedYears] = useState(new Set())
 
   const years = useMemo(
     () => (startingYear ? Array.from({ length: 6 }, (_, i) => startingYear + i) : []),
@@ -72,6 +73,21 @@ export default function Planning() {
 
   function getAmount(categoryId, year, month) {
     return amounts[`${categoryId}:${year}:${month}`] ?? 0
+  }
+
+  function getCategoryYearTotal(categoryId, year) {
+    let total = 0
+    for (let month = 1; month <= 12; month++) total += getAmount(categoryId, year, month)
+    return total
+  }
+
+  function toggleYear(year) {
+    setCollapsedYears((prev) => {
+      const next = new Set(prev)
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
+      return next
+    })
   }
 
   function setAmountLocal(categoryId, year, month, value) {
@@ -169,6 +185,24 @@ export default function Planning() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, amounts, years])
 
+  const yearTotals = useMemo(() => {
+    const totals = {}
+    for (const year of years) {
+      let income = 0
+      let expense = 0
+      let savings = 0
+      for (let month = 1; month <= 12; month++) {
+        const t = monthTotals[`${year}:${month}`]
+        income += t.income
+        expense += t.expense
+        savings += t.savings
+      }
+      const remaining = income - expense - savings
+      totals[year] = { income, expense, savings, remaining, balanced: Math.round(remaining * 100) === 0 }
+    }
+    return totals
+  }, [monthTotals, years])
+
   if (loading) {
     return <div className="p-8 text-gray-500 dark:text-gray-400">Loading planning grid…</div>
   }
@@ -217,27 +251,41 @@ export default function Planning() {
               <th className="sticky left-0 z-10 bg-gray-100 dark:bg-gray-900 border-b border-r border-gray-200 dark:border-gray-800 px-3 py-2 text-left min-w-[180px]">
                 Category
               </th>
-              {years.map((year) => (
-                <th
-                  key={year}
-                  colSpan={12}
-                  className="bg-gray-100 dark:bg-gray-900 border-b border-r border-gray-200 dark:border-gray-800 px-2 py-2 text-center font-semibold"
-                >
-                  {year}
-                </th>
-              ))}
+              {years.map((year) => {
+                const collapsed = collapsedYears.has(year)
+                return (
+                  <th
+                    key={year}
+                    colSpan={collapsed ? 1 : 12}
+                    onClick={() => toggleYear(year)}
+                    className="bg-gray-100 dark:bg-gray-900 border-b border-r border-gray-200 dark:border-gray-800 px-2 py-2 text-center font-semibold cursor-pointer select-none hover:bg-gray-200 dark:hover:bg-gray-800"
+                    title={collapsed ? 'Expand year' : 'Collapse year'}
+                  >
+                    {year} {collapsed ? '›' : 'ˇ'}
+                  </th>
+                )
+              })}
             </tr>
             <tr>
               <th className="sticky left-0 z-10 bg-gray-100 dark:bg-gray-900 border-b border-r border-gray-200 dark:border-gray-800 px-3 py-1" />
               {years.map((year) =>
-                MONTHS.map((m) => (
+                collapsedYears.has(year) ? (
                   <th
-                    key={`${year}-${m}`}
+                    key={`${year}-total`}
                     className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-800 px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 min-w-[70px]"
                   >
-                    {m}
+                    Total
                   </th>
-                )),
+                ) : (
+                  MONTHS.map((m) => (
+                    <th
+                      key={`${year}-${m}`}
+                      className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-800 px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 min-w-[70px]"
+                    >
+                      {m}
+                    </th>
+                  ))
+                ),
               )}
             </tr>
           </thead>
@@ -246,7 +294,7 @@ export default function Planning() {
               <Fragment key={type}>
                 <tr>
                   <td
-                    colSpan={1 + years.length * 12}
+                    colSpan={1 + years.reduce((sum, y) => sum + (collapsedYears.has(y) ? 1 : 12), 0)}
                     className="bg-gray-50 dark:bg-gray-900/40 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800"
                   >
                     {TYPE_LABELS[type]}
@@ -289,26 +337,35 @@ export default function Planning() {
                       </div>
                     </td>
                     {years.map((year) =>
-                      MONTHS.map((_, i) => {
-                        const month = i + 1
-                        const value = getAmount(cat.id, year, month)
-                        return (
-                          <td
-                            key={`${cat.id}-${year}-${month}`}
-                            className="border-r border-gray-100 dark:border-gray-800/60 px-1 py-1"
-                          >
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={value === 0 ? '' : value}
-                              placeholder="0"
-                              onChange={(e) => setAmountLocal(cat.id, year, month, Number(e.target.value))}
-                              onBlur={(e) => saveAmount(cat.id, year, month, Number(e.target.value) || 0)}
-                              className="w-16 bg-transparent text-right text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1"
-                            />
-                          </td>
-                        )
-                      }),
+                      collapsedYears.has(year) ? (
+                        <td
+                          key={`${cat.id}-${year}-total`}
+                          className="border-r border-gray-100 dark:border-gray-800/60 px-1 py-1 text-right text-gray-700 dark:text-gray-300"
+                        >
+                          {getCategoryYearTotal(cat.id, year).toFixed(0)}
+                        </td>
+                      ) : (
+                        MONTHS.map((_, i) => {
+                          const month = i + 1
+                          const value = getAmount(cat.id, year, month)
+                          return (
+                            <td
+                              key={`${cat.id}-${year}-${month}`}
+                              className="border-r border-gray-100 dark:border-gray-800/60 px-1 py-1"
+                            >
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={value === 0 ? '' : value}
+                                placeholder="0"
+                                onChange={(e) => setAmountLocal(cat.id, year, month, Number(e.target.value))}
+                                onBlur={(e) => saveAmount(cat.id, year, month, Number(e.target.value) || 0)}
+                                className="w-16 bg-transparent text-right text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1"
+                              />
+                            </td>
+                          )
+                        })
+                      ),
                     )}
                   </tr>
                 ))}
@@ -320,23 +377,37 @@ export default function Planning() {
                 To be allocated
               </td>
               {years.map((year) =>
-                MONTHS.map((_, i) => {
-                  const month = i + 1
-                  const t = monthTotals[`${year}:${month}`]
-                  return (
-                    <td key={`total-${year}-${month}`} className="px-2 py-2 text-right whitespace-nowrap">
-                      <span
-                        className={
-                          t.balanced
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-gray-700 dark:text-gray-300'
-                        }
-                      >
-                        {t.balanced ? '✓' : t.remaining.toFixed(0)}
-                      </span>
-                    </td>
-                  )
-                }),
+                collapsedYears.has(year) ? (
+                  <td key={`total-${year}`} className="px-2 py-2 text-right whitespace-nowrap">
+                    <span
+                      className={
+                        yearTotals[year].balanced
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-gray-700 dark:text-gray-300'
+                      }
+                    >
+                      {yearTotals[year].balanced ? '✓' : yearTotals[year].remaining.toFixed(0)}
+                    </span>
+                  </td>
+                ) : (
+                  MONTHS.map((_, i) => {
+                    const month = i + 1
+                    const t = monthTotals[`${year}:${month}`]
+                    return (
+                      <td key={`total-${year}-${month}`} className="px-2 py-2 text-right whitespace-nowrap">
+                        <span
+                          className={
+                            t.balanced
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-gray-700 dark:text-gray-300'
+                          }
+                        >
+                          {t.balanced ? '✓' : t.remaining.toFixed(0)}
+                        </span>
+                      </td>
+                    )
+                  })
+                ),
               )}
             </tr>
           </tbody>
