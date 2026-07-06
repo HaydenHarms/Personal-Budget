@@ -5,6 +5,8 @@ import SettingsPage from './pages/Settings'
 import PlanningPage from './pages/Planning'
 import TrackingPage from './pages/Tracking'
 import DashboardPage from './pages/Dashboard'
+import SavingsPage from './pages/Savings'
+import AssetAllocationPage from './pages/AssetAllocation'
 
 const NAV_ITEMS = ['Planning', 'Tracking', 'Dashboard', 'Savings', 'Asset Allocation', 'Settings']
 
@@ -13,6 +15,8 @@ const PAGES = {
   Planning: PlanningPage,
   Tracking: TrackingPage,
   Dashboard: DashboardPage,
+  Savings: SavingsPage,
+  'Asset Allocation': AssetAllocationPage,
 }
 
 export default function Shell() {

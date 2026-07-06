@@ -1,6 +1,7 @@
 # Progress
 
-## Status: Phase 0-5 done and verified. Starting Phase 6 (Savings Goal Envelopes).
+## Status: Phase 0-7 done and verified. Phase 8 (Data Migration) needs a workbook review with the
+user before running, since it writes real financial data into the live account.
 
 ### Done
 - Git repo initialized at project root.
@@ -88,8 +89,24 @@ save, and Phase 8 (Data Migration) populates categories/budget/transactions from
   submissions eliminates it completely — not reproducible at anything resembling human typing
   speed. No app code changed; noting it here in case future automated tests hit the same thing.
 
+- `src/pages/Savings.jsx` — CRUD for `savings_goals` (name, goal amount, current amount),
+  per-goal progress bar, total saved / total goal / left-to-allocate summary tiles.
+- **Phase 6 DoD verified in headless Chromium**: added a goal (5000 goal / 1000 current → 20%
+  progress bar, tiles matched), edited current amount to 2500 → bar and tiles recomputed to 50%
+  live, deleted the goal and confirmed tiles reset to zero. Zero console errors.
+- `src/pages/AssetAllocation.jsx` — CRUD for `asset_holdings` (bucket, target %, current value),
+  current-vs-target diff column, pie chart of current allocation.
+- **Phase 7 DoD verified in headless Chromium**: added US (60%/6000) and Cash (40%/4000) holdings,
+  confirmed current % and diff computed correctly (0% diff when matching target), edited US to
+  7000 and confirmed both rows recomputed correctly (US 63.6%/+3.6%, Cash 36.4%/-3.6%), pie chart
+  rendered, cleanup verified. Zero console errors.
+
 ### Next
-1. Phase 6 — Savings Goal Envelopes (CRUD for `savings_goals`, progress bars, totals).
+1. Phase 8 — Data Migration. **Needs a workbook review with the user first**: open
+   `Personal_Budget.xlsx` together to confirm sheet/column layout before writing real transaction
+   history, budget amounts, and holdings into the live Supabase account. This is the first phase
+   that touches real user financial data rather than throwaway test rows, so it warrants a
+   check-in rather than assuming the layout.
 2. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN
