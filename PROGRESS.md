@@ -1,8 +1,6 @@
 # Progress
 
-## Status: Phase 0 done (connection verified anonymously); Phase 1 built, blocked on login credentials
-
-See `BLOCKERS.md` for the one open item.
+## Status: Phase 0 and Phase 1 done and verified. Starting Phase 2 (Settings module).
 
 ### Done
 - Git repo initialized at project root.
@@ -24,19 +22,23 @@ See `BLOCKERS.md` for the one open item.
 - Removed all Vite scaffold demo content (App.css, demo assets, icons.svg).
 - `npm run build` and `npm run dev` both verified working (dev server serves the app, no build
   errors).
-- Anonymous REST query against `categories` confirmed the Supabase URL + anon key are valid
-  (HTTP 200).
+- **Phase 0 DoD verified**: authenticated query against `categories` succeeds (no connection/RLS
+  errors — table is just empty for this user, see note below).
+- **Phase 1 DoD verified**: sign-in with corrected credentials succeeds end-to-end.
+  `supabase connection.txt` updated with the working password (not committed to git).
 
-### Blocked
-- Could not complete authenticated verification (Phase 0 DoD "successfully queries the categories
-  table" in the sense of a real logged-in session, and Phase 1 DoD "can log in") because the
-  password in `supabase connection.txt` doesn't match the existing account. See `BLOCKERS.md`.
+### Note on empty data
+Authenticated queries against `categories`, `settings`, and `transactions` all return 0 rows for
+the current user, despite BUILD_PLAN.md section 3 claiming a `settings` row was already seeded.
+Likely the auth user was recreated at some point (new UUID), orphaning any previously-seeded data
+under an old user ID. Not currently blocking anything: Phase 2 upserts a `settings` row on first
+save, and Phase 8 (Data Migration) populates categories/budget/transactions from
+`Personal_Budget.xlsx` under the current user ID regardless. See `BLOCKERS.md` for detail.
 
-### Next (once unblocked)
-1. Re-verify login with corrected credentials; confirm Shell renders, nav switches, logout works.
-2. Phase 2 — Settings module (bind to `settings` table, upsert on save).
-3. Phase 3 — Categories & Budget Planning grid (6-year grid, balance-check row).
-4. Continue phases in order per `BUILD_PLAN.md` section 7.
+### Next
+1. Phase 2 — Settings module (bind to `settings` table, upsert on save).
+2. Phase 3 — Categories & Budget Planning grid (6-year grid, balance-check row).
+3. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN
 - None yet. Schema and BUILD_PLAN followed as written.
