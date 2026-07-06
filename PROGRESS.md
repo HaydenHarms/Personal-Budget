@@ -1,6 +1,6 @@
 # Progress
 
-## Status: Phase 0, 1, 2 done and verified. Starting Phase 3 (Categories & Planning grid).
+## Status: Phase 0-3 done and verified. Starting Phase 4 (Transaction Tracking Ledger).
 
 ### Done
 - Git repo initialized at project root.
@@ -42,8 +42,20 @@ save, and Phase 8 (Data Migration) populates categories/budget/transactions from
   (starting_year = current year, shift active, day 25, method active) so no test data was left
   in the real account.
 
+- `src/pages/Planning.jsx` — category CRUD (add/rename/reorder/delete) grouped by
+  income/expense/savings, plus the 6-year × 12-month budget grid bound to `budget_amounts`
+  (upsert per cell on blur), with a live "To be allocated" row per month and a ✓ when
+  Income − Expenses − Savings == 0. Wired into `Shell.jsx`.
+- **Phase 3 DoD verified end-to-end in a real headless-Chromium session** (installed Playwright
+  in scratchpad since `chromium-cli` wasn't available on this machine): logged in, added an
+  income category and an expense category, entered matching amounts, confirmed the "To be
+  allocated" row went from an unbalanced number to a ✓, confirmed the amounts persisted after a
+  full page reload, then deleted both test categories to leave the real account clean. Zero
+  console errors during the run.
+
 ### Next
-1. Phase 3 — Categories & Budget Planning grid (6-year grid, balance-check row).
+1. Phase 4 — Transaction Tracking Ledger (form + table, cascading category dropdown, running
+   balance, display `effective_date` from the DB trigger).
 2. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN
