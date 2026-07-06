@@ -1,7 +1,6 @@
 # Progress
 
-## Status: Phase 0-7 done and verified. Phase 8 (Data Migration) needs a workbook review with the
-user before running, since it writes real financial data into the live account.
+## Status: Phase 0-8 done and verified. Starting Phase 9 (PWA Packaging).
 
 ### Done
 - Git repo initialized at project root.
@@ -101,12 +100,40 @@ save, and Phase 8 (Data Migration) populates categories/budget/transactions from
   7000 and confirmed both rows recomputed correctly (US 63.6%/+3.6%, Cash 36.4%/-3.6%), pie chart
   rendered, cleanup verified. Zero console errors.
 
+- `scripts/migrate.cjs` — one-time import script. Reads credentials from `.env.local` and
+  `supabase connection.txt` at runtime (never hardcoded, never committed), reads
+  `Personal_Budget.xlsx` via the `xlsx` package (added as a devDependency), and populates
+  `settings`, `categories`, `budget_amounts`, `transactions`, and `savings_goals`. Refuses to run
+  if the account already has categories, to prevent accidental double-import. Supports
+  `--dry-run`.
+- **Workbook structure** (for future reference): `Settings` sheet has starting year / shift-late
+  -income / savings-rate-method as labeled cells. `Budget Planning` has 6 year-blocks side by
+  side, each 14 columns wide (12 months + Total + spacer) starting at column offsets
+  2/16/30/44/58/72; category rows per type run 9-18 (income), 22-31 (expense), 35-44 (savings),
+  with unused template rows literally named "Enter ___ Category…" (skipped). `Budget Tracking`
+  has ~900 transaction rows starting at row 11 with columns Date/Type/Category/Amount/
+  Details/Balance/Effective Date — the sheet's own Balance and Effective Date columns were NOT
+  imported since the app recomputes both (client-side running balance, DB-trigger effective_date).
+- **Decisions made with the user before running** (see conversation, not re-litigated here):
+  50 of 900 transactions (5.5%) used category names never added to the Planning grid. Resolved
+  by auto-creating 4 new expense categories (Rock Climbing, Bachelor Trip, Shopping, Side Hustle
+  Expenses) plus an "Uncategorized" expense category for 11 blank-category rows, and recategorizing
+  the single transaction literally labeled "Income" to "Employment" (its detail said "Airbus
+  Payroll"). Asset Allocation was explicitly **skipped** per the user's choice — the workbook's
+  per-bucket target percentages weren't clean 1:1 data (only an "invested funds excluding cash"
+  split was present), so `asset_holdings` was left empty for the user to fill in manually later.
+- **Migration result**: 24 categories, 900 transactions, 247 non-zero budget_amounts cells, 3
+  savings goals (Emergency Nest, Honeymoon, Gifts).
+- **Phase 8 DoD verified beyond the minimum**: spot-checked budget amounts for 3 category/month
+  combos against the raw sheet cells (exact match), and cross-validated tracked income/expense
+  /savings totals for 3 months spanning both years (2025-01, 2025-06, 2026-03) against sums
+  computed independently from the workbook's own formula-driven Effective Date column — all
+  three months matched exactly, which incidentally also proves the DB's shift-late-income trigger
+  exactly reproduces the original Excel formula's behavior. Confirmed live in the browser
+  (Dashboard, Planning, Tracking all render the real data with zero console errors).
+
 ### Next
-1. Phase 8 — Data Migration. **Needs a workbook review with the user first**: open
-   `Personal_Budget.xlsx` together to confirm sheet/column layout before writing real transaction
-   history, budget amounts, and holdings into the live Supabase account. This is the first phase
-   that touches real user financial data rather than throwaway test rows, so it warrants a
-   check-in rather than assuming the layout.
+1. Phase 9 — PWA Packaging (manifest, service worker, icons, installable on phone + desktop).
 2. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN
