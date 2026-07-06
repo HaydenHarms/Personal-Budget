@@ -1,6 +1,6 @@
 # Progress
 
-## Status: Phase 0-3 done and verified. Starting Phase 4 (Transaction Tracking Ledger).
+## Status: Phase 0-4 done and verified. Starting Phase 5 (Dashboard).
 
 ### Done
 - Git repo initialized at project root.
@@ -53,9 +53,19 @@ save, and Phase 8 (Data Migration) populates categories/budget/transactions from
   full page reload, then deleted both test categories to leave the real account clean. Zero
   console errors during the run.
 
+- `src/pages/Tracking.jsx` — transaction ledger: form (date/type/category/amount/details) with
+  the category dropdown cascading off the selected type, table sorted by date ascending with a
+  running balance column (income adds, expense/savings subtract), edit/delete per row, displays
+  `effective_date` straight from the DB (never recomputed client-side). Wired into `Shell.jsx`.
+- **Phase 4 DoD verified end-to-end in headless Chromium**: cascading dropdown confirmed
+  (income/expense option lists don't cross-contaminate), added transactions on the 1st, 5th, and
+  27th of a month — confirmed the 27th (>= `shift_late_income_day` 25) correctly showed
+  `effective_date` shifted to the 1st of the next month via the DB trigger, running balance
+  computed correctly across income/expense, edit and delete both verified, zero console errors.
+  Test categories and transactions cleaned up afterward.
+
 ### Next
-1. Phase 4 — Transaction Tracking Ledger (form + table, cascading category dropdown, running
-   balance, display `effective_date` from the DB trigger).
+1. Phase 5 — Dashboard (year/period selectors, breakdown table, doughnut + bar charts, KPI tiles).
 2. Continue phases in order per `BUILD_PLAN.md` section 7.
 
 ### Notes / deviations from BUILD_PLAN

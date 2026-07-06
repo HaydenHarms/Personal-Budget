@@ -3,12 +3,14 @@ import { useAuth } from './lib/AuthContext'
 import Placeholder from './pages/Placeholder'
 import SettingsPage from './pages/Settings'
 import PlanningPage from './pages/Planning'
+import TrackingPage from './pages/Tracking'
 
 const NAV_ITEMS = ['Planning', 'Tracking', 'Dashboard', 'Savings', 'Asset Allocation', 'Settings']
 
 const PAGES = {
   Settings: SettingsPage,
   Planning: PlanningPage,
+  Tracking: TrackingPage,
 }
 
 export default function Shell() {
