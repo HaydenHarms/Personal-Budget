@@ -11,7 +11,7 @@ After each step: commit, update `PROGRESS.md`, verify in the running app before 
 and categorizes transactions, deduplicates against existing Supabase data, and upserts
 only the new rows.
 
-### CSV Format (Schwab export)
+### CSV Format (Amarillo National Bank export)
 ```
 Account Number, Post Date, Check, Description, Debit, Credit, Status, Classification
 "23122579", 6/3/2026, , "Van Leeuwen Ice Cream", 11.01, , Posted, "Food & Dining"

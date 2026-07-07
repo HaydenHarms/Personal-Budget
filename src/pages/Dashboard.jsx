@@ -14,11 +14,13 @@ import {
 } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../lib/AuthContext'
+import SankeyChart from '../components/SankeyChart'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const TYPE_LABELS = { income: 'Income', expense: 'Expenses', savings: 'Savings' }
 const SLICE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4']
 const OTHER_COLOR = '#94a3b8'
+const SERIES_COLORS = { income: '#22c55e', expense: '#ef4444', savings: '#3b82f6' }
 
 function monthOf(dateStr) {
   return Number(dateStr.slice(5, 7))
@@ -44,6 +46,7 @@ export default function Dashboard() {
 
   const [yearMode, setYearMode] = useState('current')
   const [periodMode, setPeriodMode] = useState('total')
+  const [showMoneyFlow, setShowMoneyFlow] = useState(false)
 
   const resolvedYear = yearMode === 'current' ? currentYear : yearMode
   const resolvedMonth = periodMode === 'total' ? null : periodMode === 'current-month' ? currentMonth : periodMode
@@ -173,24 +176,69 @@ export default function Dashboard() {
     return result
   }, [breakdown])
 
-  const monthlyExpenseChart = useMemo(() => {
-    const trackedByMonth = Array(12).fill(0)
-    const budgetByMonth = Array(12).fill(0)
+  // Same top-5-per-type + "Other" color assignment as the doughnut charts, so a category's
+  // color is consistent across every chart on this dashboard.
+  const categoryColorMap = useMemo(() => {
+    const map = {}
+    for (const type of ['income', 'expense', 'savings']) {
+      const rows = breakdown.filter((r) => r.type === type && r.tracked > 0)
+      rows.forEach((r, i) => {
+        map[r.id] = i < 5 ? SLICE_COLORS[i % SLICE_COLORS.length] : OTHER_COLOR
+      })
+    }
+    return map
+  }, [breakdown])
+
+  const sankeyData = useMemo(() => {
+    const incomeCats = breakdown.filter((r) => r.type === 'income' && r.tracked > 0)
+    const outCats = breakdown.filter((r) => (r.type === 'expense' || r.type === 'savings') && r.tracked > 0)
+
+    if (incomeCats.length === 0 && outCats.length === 0) return { nodes: [], links: [] }
+
+    return {
+      nodes: [
+        ...incomeCats.map((c) => ({ id: `in:${c.id}`, name: c.name, type: 'income', color: categoryColorMap[c.id] })),
+        { id: 'hub', name: 'Income', type: 'hub' },
+        ...outCats.map((c) => ({ id: `out:${c.id}`, name: c.name, type: c.type, color: categoryColorMap[c.id] })),
+      ],
+      links: [
+        ...incomeCats.map((c) => ({
+          source: `in:${c.id}`,
+          target: 'hub',
+          value: c.tracked,
+          color: categoryColorMap[c.id],
+        })),
+        ...outCats.map((c) => ({
+          source: 'hub',
+          target: `out:${c.id}`,
+          value: c.tracked,
+          color: categoryColorMap[c.id],
+        })),
+      ],
+    }
+  }, [breakdown, categoryColorMap])
+
+  const monthlyChart = useMemo(() => {
+    const tracked = { income: Array(12).fill(0), expense: Array(12).fill(0), savings: Array(12).fill(0) }
+    const budget = { income: Array(12).fill(0), expense: Array(12).fill(0), savings: Array(12).fill(0) }
 
     for (const t of txns) {
-      if (t.type !== 'expense') continue
-      trackedByMonth[monthOf(t.effective_date) - 1] += Number(t.amount)
+      tracked[t.type][monthOf(t.effective_date) - 1] += Number(t.amount)
     }
     for (const r of budgetRows) {
       const cat = categoriesById[r.category_id]
-      if (cat?.type !== 'expense') continue
-      budgetByMonth[r.month - 1] += Number(r.amount)
+      if (!cat) continue
+      budget[cat.type][r.month - 1] += Number(r.amount)
     }
 
     return MONTHS.map((m, i) => ({
       month: m,
-      tracked: trackedByMonth[i],
-      budget: budgetByMonth[i],
+      income: tracked.income[i],
+      budget_income: budget.income[i],
+      expense: tracked.expense[i],
+      budget_expense: budget.expense[i],
+      savings: tracked.savings[i],
+      budget_savings: budget.savings[i],
       isSelected: resolvedMonth === i + 1,
     }))
   }, [txns, budgetRows, categoriesById, resolvedMonth])
@@ -335,26 +383,76 @@ export default function Dashboard() {
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-8">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          Expenses: tracked vs. budget by month
-        </h3>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={monthlyExpenseChart}>
+        <button
+          type="button"
+          onClick={() => setShowMoneyFlow((v) => !v)}
+          className="w-full flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-300"
+        >
+          Money Flow
+          <span className="text-gray-400">{showMoneyFlow ? 'ˇ' : '›'}</span>
+        </button>
+        {showMoneyFlow && (
+          <div className="mt-4 overflow-x-auto">
+            <SankeyChart data={sankeyData} width={900} height={Math.max(sankeyData.nodes.length * 28, 240)} />
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Tracked vs. budget by month
+          </h3>
+          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5">
+                <svg width="14" height="14">
+                  <rect x="1" y="1" width="12" height="12" fill="none" stroke="#94a3b8" strokeWidth="2" />
+                </svg>
+                Budget (outline)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <svg width="14" height="14">
+                  <rect x="1" y="1" width="12" height="12" fill="#94a3b8" />
+                </svg>
+                Tracked (filled)
+              </span>
+            </div>
+            <div className="flex items-center gap-3 border-l border-gray-200 dark:border-gray-700 pl-4">
+              {['income', 'expense', 'savings'].map((type) => (
+                <span key={type} className="flex items-center gap-1.5">
+                  <svg width="14" height="14">
+                    <rect x="1" y="1" width="12" height="12" fill={SERIES_COLORS[type]} />
+                  </svg>
+                  {TYPE_LABELS[type]}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={monthlyChart} barGap={-14}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(v) => Number(v).toFixed(2)} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="budget" name="Budget" fill="#94a3b8">
-              {monthlyExpenseChart.map((entry) => (
-                <Cell key={entry.month} fillOpacity={!resolvedMonth || entry.isSelected ? 1 : 0.35} />
-              ))}
-            </Bar>
-            <Bar dataKey="tracked" name="Tracked" fill="#6366f1">
-              {monthlyExpenseChart.map((entry) => (
-                <Cell key={entry.month} fillOpacity={!resolvedMonth || entry.isSelected ? 1 : 0.35} />
-              ))}
-            </Bar>
+            <Tooltip
+              content={<MonthlyChartTooltip monthlyChart={monthlyChart} />}
+              cursor={{ fill: '#6366f1', fillOpacity: 0.08 }}
+            />
+            {['income', 'expense', 'savings'].map((type) => (
+              <Bar key={`budget_${type}`} dataKey={`budget_${type}`} name={`${TYPE_LABELS[type]} budget`} legendType="none" fill="transparent" stroke={SERIES_COLORS[type]} strokeWidth={2} barSize={18}>
+                {monthlyChart.map((entry) => (
+                  <Cell key={entry.month} strokeOpacity={!resolvedMonth || entry.isSelected ? 1 : 0.3} />
+                ))}
+              </Bar>
+            ))}
+            {['income', 'expense', 'savings'].map((type) => (
+              <Bar key={type} dataKey={type} name={`${TYPE_LABELS[type]} tracked`} legendType="none" fill={SERIES_COLORS[type]} fillOpacity={0.85} barSize={12}>
+                {monthlyChart.map((entry) => (
+                  <Cell key={entry.month} fillOpacity={!resolvedMonth || entry.isSelected ? 0.85 : 0.25} />
+                ))}
+              </Bar>
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -413,6 +511,26 @@ function KpiTile({ label, value }) {
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</p>
       <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+    </div>
+  )
+}
+
+function MonthlyChartTooltip({ active, label, monthlyChart }) {
+  if (!active) return null
+  const row = monthlyChart.find((r) => r.month === label)
+  if (!row) return null
+
+  return (
+    <div className="bg-gray-900 text-gray-100 text-xs rounded-lg shadow-lg border border-gray-700 px-3 py-2 max-w-[220px]">
+      <p className="font-semibold mb-1.5">{label}</p>
+      {['income', 'expense', 'savings'].map((type) => (
+        <div key={type} className="flex items-center justify-between gap-3 py-0.5 whitespace-nowrap">
+          <span style={{ color: SERIES_COLORS[type] }}>{TYPE_LABELS[type]}</span>
+          <span>
+            ${row[type].toFixed(2)} / ${row[`budget_${type}`].toFixed(2)}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
