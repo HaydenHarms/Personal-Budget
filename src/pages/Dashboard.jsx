@@ -176,6 +176,19 @@ export default function Dashboard() {
     return result
   }, [breakdown])
 
+  // Same top-5-per-type + "Other" color assignment as the doughnut charts, so a category's
+  // color is consistent across every chart on this dashboard.
+  const categoryColorMap = useMemo(() => {
+    const map = {}
+    for (const type of ['income', 'expense', 'savings']) {
+      const rows = breakdown.filter((r) => r.type === type && r.tracked > 0)
+      rows.forEach((r, i) => {
+        map[r.id] = i < 5 ? SLICE_COLORS[i % SLICE_COLORS.length] : OTHER_COLOR
+      })
+    }
+    return map
+  }, [breakdown])
+
   const sankeyData = useMemo(() => {
     const incomeCats = breakdown.filter((r) => r.type === 'income' && r.tracked > 0)
     const outCats = breakdown.filter((r) => (r.type === 'expense' || r.type === 'savings') && r.tracked > 0)
@@ -184,16 +197,26 @@ export default function Dashboard() {
 
     return {
       nodes: [
-        ...incomeCats.map((c) => ({ id: `in:${c.id}`, name: c.name, type: 'income' })),
+        ...incomeCats.map((c) => ({ id: `in:${c.id}`, name: c.name, type: 'income', color: categoryColorMap[c.id] })),
         { id: 'hub', name: 'Income', type: 'hub' },
-        ...outCats.map((c) => ({ id: `out:${c.id}`, name: c.name, type: c.type })),
+        ...outCats.map((c) => ({ id: `out:${c.id}`, name: c.name, type: c.type, color: categoryColorMap[c.id] })),
       ],
       links: [
-        ...incomeCats.map((c) => ({ source: `in:${c.id}`, target: 'hub', value: c.tracked })),
-        ...outCats.map((c) => ({ source: 'hub', target: `out:${c.id}`, value: c.tracked })),
+        ...incomeCats.map((c) => ({
+          source: `in:${c.id}`,
+          target: 'hub',
+          value: c.tracked,
+          color: categoryColorMap[c.id],
+        })),
+        ...outCats.map((c) => ({
+          source: 'hub',
+          target: `out:${c.id}`,
+          value: c.tracked,
+          color: categoryColorMap[c.id],
+        })),
       ],
     }
-  }, [breakdown])
+  }, [breakdown, categoryColorMap])
 
   const monthlyChart = useMemo(() => {
     const tracked = { income: Array(12).fill(0), expense: Array(12).fill(0), savings: Array(12).fill(0) }
@@ -376,31 +399,35 @@ export default function Dashboard() {
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-8">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             Tracked vs. budget by month
           </h3>
           <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-            <span className="flex items-center gap-1.5">
-              <svg width="14" height="14">
-                <rect x="1" y="1" width="12" height="12" fill="none" stroke="#94a3b8" strokeWidth="2" />
-              </svg>
-              Budget
-            </span>
-            <span className="flex items-center gap-1.5">
-              <svg width="14" height="14">
-                <rect x="1" y="1" width="12" height="12" fill="#94a3b8" />
-              </svg>
-              Tracked
-            </span>
-            {['income', 'expense', 'savings'].map((type) => (
-              <span key={type} className="flex items-center gap-1.5">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5">
                 <svg width="14" height="14">
-                  <rect x="1" y="1" width="12" height="12" fill={SERIES_COLORS[type]} />
+                  <rect x="1" y="1" width="12" height="12" fill="none" stroke="#94a3b8" strokeWidth="2" />
                 </svg>
-                {TYPE_LABELS[type]}
+                Budget (outline)
               </span>
-            ))}
+              <span className="flex items-center gap-1.5">
+                <svg width="14" height="14">
+                  <rect x="1" y="1" width="12" height="12" fill="#94a3b8" />
+                </svg>
+                Tracked (filled)
+              </span>
+            </div>
+            <div className="flex items-center gap-3 border-l border-gray-200 dark:border-gray-700 pl-4">
+              {['income', 'expense', 'savings'].map((type) => (
+                <span key={type} className="flex items-center gap-1.5">
+                  <svg width="14" height="14">
+                    <rect x="1" y="1" width="12" height="12" fill={SERIES_COLORS[type]} />
+                  </svg>
+                  {TYPE_LABELS[type]}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
@@ -408,7 +435,10 @@ export default function Dashboard() {
             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(v) => Number(v).toFixed(2)} />
+            <Tooltip
+              content={<MonthlyChartTooltip monthlyChart={monthlyChart} />}
+              cursor={{ fill: '#6366f1', fillOpacity: 0.08 }}
+            />
             {['income', 'expense', 'savings'].map((type) => (
               <Bar key={`budget_${type}`} dataKey={`budget_${type}`} name={`${TYPE_LABELS[type]} budget`} legendType="none" fill="transparent" stroke={SERIES_COLORS[type]} strokeWidth={2} barSize={18}>
                 {monthlyChart.map((entry) => (
@@ -481,6 +511,26 @@ function KpiTile({ label, value }) {
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</p>
       <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+    </div>
+  )
+}
+
+function MonthlyChartTooltip({ active, label, monthlyChart }) {
+  if (!active) return null
+  const row = monthlyChart.find((r) => r.month === label)
+  if (!row) return null
+
+  return (
+    <div className="bg-gray-900 text-gray-100 text-xs rounded-lg shadow-lg border border-gray-700 px-3 py-2 max-w-[220px]">
+      <p className="font-semibold mb-1.5">{label}</p>
+      {['income', 'expense', 'savings'].map((type) => (
+        <div key={type} className="flex items-center justify-between gap-3 py-0.5 whitespace-nowrap">
+          <span style={{ color: SERIES_COLORS[type] }}>{TYPE_LABELS[type]}</span>
+          <span>
+            ${row[type].toFixed(2)} / ${row[`budget_${type}`].toFixed(2)}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

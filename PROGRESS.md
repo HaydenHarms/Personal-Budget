@@ -1,8 +1,9 @@
 # Progress
 
-## Status: v1.0 shipped. All 10 phases of BUILD_PLAN.md complete, plus all 4 steps of
-BUDGET_FIXES.md's post-launch spec (see bottom of this file). Only outstanding item: Step 1's CSV
-import script hasn't been run for real yet - no actual bank export exists to feed it.
+## Status: v1.0 shipped. BUILD_PLAN.md (10 phases), BUDGET_FIXES.md (4 steps), and
+DASHBOARD_FIX_SPEC.md (9 issues) all complete (see bottom of this file for the latter two). Only
+outstanding item: BUDGET_FIXES Step 1's CSV import script hasn't been run for real yet - no
+actual bank export exists to feed it.
 
 Live at https://haydenharms.github.io/Personal-Budget/
 
@@ -287,3 +288,88 @@ clone with no extra remotes, only relevant if the user edits files there directl
   dropped to `0.08` (confirmed by reading the actual SVG attribute values, not just eyeballing
   it), switching the year selector to 2029 (no data) correctly showed the empty-state message
   instead of an empty/broken chart, zero console errors throughout.
+
+---
+
+## DASHBOARD_FIX_SPEC.md — bar chart & Sankey polish
+
+Found in the same GitHub Desktop clone folder as `BUDGET_FIXES.md`, copied here the same way.
+
+### Issue 4 — flat-bar months investigated (not a bug)
+Queried `budget_amounts` and `transactions` directly against the live account for 2026:
+- **Budget data is present for every month** (11-12 non-zero rows/month, ~$3,300-6,900 total
+  budgeted per month all year) — the Planning grid data made it into the database correctly.
+  Rows aren't 1-per-category-per-month because the migration script (and the Planning UI) only
+  ever writes non-zero cells; that's expected sparsity matching the source Excel, not missing data.
+- **Aug-Dec 2026 genuinely have zero transactions** — confirmed the most recent transaction in the
+  account is dated 2026-07-03. Those months are in the future relative to today; nothing has been
+  logged yet. This is the second scenario the spec called out explicitly ("if live tracking has
+  only been happening for a few months... flat bars for future months would be correct, not a
+  bug") — confirmed that's exactly what's happening, not a query bug.
+- Also re-read `monthlyChart`'s aggregation code (`src/pages/Dashboard.jsx`): it correctly uses
+  the full-year `txns`/`budgetRows` (not the period-filtered subset), grouped by `effective_date`
+  month with no filtering logic that would incorrectly hide populated months. No code bug found.
+- **Separate observation, not a bug**: some middle months (Mar/Apr) have real non-zero
+  expense/savings values but can *look* visually flat in a screenshot because Income spikes
+  (e.g. Feb ~$7,700) dominate the shared linear Y-axis, compressing smaller-magnitude
+  expense/savings bars toward the bottom. This is an inherent tradeoff of overlaying three series
+  with very different typical magnitudes on one axis, not something the spec asked to be
+  redesigned (e.g. dual-axis or log scale) — noting it here for awareness, no change made.
+- **Conclusion**: proceeding with Issues 1-3 styling fixes as directed, since the underlying data
+  is correct and the chart's remaining problems are genuinely styling/UX (tooltip, highlight,
+  legend), not data.
+
+### Issues 1-3 — bar chart polish (done)
+- **Issue 1 (tooltip)**: replaced the default Recharts tooltip with a custom `MonthlyChartTooltip`
+  component. Root cause of the "only shows tracked, not budget" symptom: rather than debug
+  Recharts' payload-filtering behavior with 6 overlapping Bar series (some `fill="transparent"`),
+  the new tooltip looks up the hovered month directly from `monthlyChart` by label instead of
+  trusting Recharts' payload — guaranteed to always show all three series' tracked *and* budget
+  values, styled dark (`bg-gray-900`), compact, per-series color-coded, currency-formatted.
+- **Issue 2 (harsh gray highlight box)**: this was never the per-bar Cell-opacity dimming I'd
+  built for the selected period (that part was already working correctly) — it was Recharts'
+  *default hover cursor*, an unstyled solid-gray rectangle shown on every hover regardless of
+  period selection. Fixed by setting `cursor={{ fill: '#6366f1', fillOpacity: 0.08 }}` on the
+  `<Tooltip>`, a subtle on-theme indigo wash sized to just the hovered month's column (Recharts'
+  default sizing was already correct — only the color/opacity was harsh).
+- **Issue 3 (legend)**: added a vertical divider between the style-legend (Budget outline /
+  Tracked filled swatches) and the color-legend (Income/Expenses/Savings), plus clarified labels
+  ("Budget (outline)" / "Tracked (filled)") so the two-dimensional encoding reads as two visually
+  distinct groups instead of five unrelated flat items.
+- **Verified against the running dev app with real data**: hovering a bar now shows a compact
+  dark tooltip with all 3 series' tracked/budget pairs (confirmed via `innerText`, e.g.
+  `"Apr / Income $1849.59 / $1612.00 / Expenses $1284.73 / $1065.00 / Savings $1102.32 / $696.50"`),
+  the hover cursor is a subtle indigo wash instead of solid gray, and the legend now visually
+  groups into two sections. Zero console errors.
+
+### Issues 5-9 — Sankey diagram polish (done)
+- **Issue 5 (clipped title)**: added `TOP_MARGIN = 24` to the sankey layout's `extent()` (was 5px)
+  so the "Income" hub label has room to render above the node instead of touching the SVG edge.
+- **Issue 6 (no labels)**: the labels were actually already in the DOM the whole time (confirmed
+  via `textContent` — right label-detection approach, since SVG `<text>` has no `.innerText`) —
+  they were rendering **off-canvas**. The layout's `extent()` placed nodes flush against x=1 and
+  x=width-1 with zero horizontal margin, so left-side labels (positioned via `x0 - 6`, right-
+  aligned) landed at negative x, and right-side labels (`x1 + 6`) landed past the SVG's right
+  edge. Fixed by adding `SIDE_MARGIN = 150` px on both sides of the layout extent. Also added
+  ellipsis truncation (`MAX_LABEL_CHARS = 20`) for names too long to fit even with the added
+  margin (e.g. "Bond Coupons / Savings Interest" → "Bond Coupons / Savi…"), with the full name
+  still available via a native `<title>` on the text element and the existing hover tooltip.
+- **Issue 7 (colors)**: added a `categoryColorMap` memo in `Dashboard.jsx` using the exact same
+  top-5-per-type + "Other" gray assignment as the doughnut charts (`SLICE_COLORS`/`OTHER_COLOR`),
+  passed down as `node.color` / `link.color`. `SankeyChart.jsx` now fills nodes and strokes links
+  with the specific per-category color instead of the previous broad income/expense/savings
+  type-only palette, so a category's color is now consistent across doughnuts and Sankey alike.
+- **Issue 8 (no tooltips)**: added hover state tracking mouse position on both node `<rect>`s and
+  link `<path>`s, rendering a floating dark-styled tooltip (same visual language as Issue 1's bar
+  chart tooltip) showing the category/flow name and dollar value.
+- **Issue 9 (selector reactivity)**: confirmed already correct — `sankeyData` derives from
+  `breakdown`, which is already Year/Period-scoped. Verified explicitly: Employment's node value
+  read $12,160.83 for the full year, $2,712.76 for January only, and switching to 2025/January
+  correctly re-sorted "Coca Cola Dividends" ($400) ahead of Employment ($150) since it was
+  genuinely the larger income category that specific month — proving both the value and the
+  sort order recompute correctly, not just a visual difference.
+- **Verified against the running dev app with real data**: zoomed screenshots confirm the "Income"
+  title is fully visible, all 19 category labels render legibly (with truncation working for the
+  one overly-long name), colors are vivid and per-category distinct, and both node and link hover
+  tooltips return correct content (e.g. link hover → `"Employment → Income\n\n$12160.83"`). Zero
+  console errors throughout.
