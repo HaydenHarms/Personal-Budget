@@ -30,6 +30,45 @@ function daysBetween(a, b) {
   return Math.round((a.getTime() - b.getTime()) / 86400000)
 }
 
+function niceCeil(value) {
+  if (value <= 0) return 100
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)))
+  const residual = value / magnitude
+  let niceResidual
+  if (residual <= 1) niceResidual = 1
+  else if (residual <= 1.5) niceResidual = 1.5
+  else if (residual <= 2) niceResidual = 2
+  else if (residual <= 3) niceResidual = 3
+  else if (residual <= 5) niceResidual = 5
+  else if (residual <= 7.5) niceResidual = 7.5
+  else niceResidual = 10
+  return niceResidual * magnitude
+}
+
+// Draws the budget (outline) box and tracked (filled) bar for one type, centered
+// in the slot Recharts assigns this <Bar>, so income/expense/savings sit side by
+// side per month instead of all six bars overlapping at the same x position.
+function BudgetTrackedBar(props) {
+  const { x, y, width, height, background, payload, type, chartMax, resolvedMonth } = props
+  const color = SERIES_COLORS[type]
+  const budgetValue = payload[`budget_${type}`] || 0
+  const isDimmed = Boolean(resolvedMonth) && !payload.isSelected
+
+  const scale = background.height / chartMax
+  const budgetHeight = Math.max(budgetValue * scale, 0)
+  const budgetY = background.y + background.height - budgetHeight
+
+  const innerWidth = Math.max(width * 0.5, 6)
+  const innerX = x + (width - innerWidth) / 2
+
+  return (
+    <g opacity={isDimmed ? 0.35 : 1}>
+      <rect x={x} y={budgetY} width={width} height={budgetHeight} fill="none" stroke={color} strokeWidth={2} />
+      <rect x={innerX} y={y} width={innerWidth} height={Math.max(height, 0)} fill={color} fillOpacity={0.85} />
+    </g>
+  )
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const currentYear = new Date().getFullYear()
@@ -243,6 +282,14 @@ export default function Dashboard() {
     }))
   }, [txns, budgetRows, categoriesById, resolvedMonth])
 
+  const chartMax = useMemo(() => {
+    let max = 0
+    for (const row of monthlyChart) {
+      max = Math.max(max, row.income, row.budget_income, row.expense, row.budget_expense, row.savings, row.budget_savings)
+    }
+    return niceCeil(max)
+  }, [monthlyChart])
+
   const kpis = useMemo(() => {
     let income = 0
     let expense = 0
@@ -431,27 +478,24 @@ export default function Dashboard() {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={monthlyChart} barGap={-14}>
+          <BarChart data={monthlyChart} barGap={4} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
+            <YAxis domain={[0, chartMax]} allowDecimals={false} tick={{ fontSize: 12 }} />
             <Tooltip
               content={<MonthlyChartTooltip monthlyChart={monthlyChart} />}
               cursor={{ fill: '#6366f1', fillOpacity: 0.08 }}
             />
             {['income', 'expense', 'savings'].map((type) => (
-              <Bar key={`budget_${type}`} dataKey={`budget_${type}`} name={`${TYPE_LABELS[type]} budget`} legendType="none" fill="transparent" stroke={SERIES_COLORS[type]} strokeWidth={2} barSize={18}>
-                {monthlyChart.map((entry) => (
-                  <Cell key={entry.month} strokeOpacity={!resolvedMonth || entry.isSelected ? 1 : 0.3} />
-                ))}
-              </Bar>
-            ))}
-            {['income', 'expense', 'savings'].map((type) => (
-              <Bar key={type} dataKey={type} name={`${TYPE_LABELS[type]} tracked`} legendType="none" fill={SERIES_COLORS[type]} fillOpacity={0.85} barSize={12}>
-                {monthlyChart.map((entry) => (
-                  <Cell key={entry.month} fillOpacity={!resolvedMonth || entry.isSelected ? 0.85 : 0.25} />
-                ))}
-              </Bar>
+              <Bar
+                key={type}
+                dataKey={type}
+                name={`${TYPE_LABELS[type]} tracked`}
+                legendType="none"
+                barSize={32}
+                isAnimationActive={false}
+                shape={(props) => <BudgetTrackedBar {...props} type={type} chartMax={chartMax} resolvedMonth={resolvedMonth} />}
+              />
             ))}
           </BarChart>
         </ResponsiveContainer>
