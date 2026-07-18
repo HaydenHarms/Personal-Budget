@@ -15,6 +15,11 @@ export default function Tracking() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [filterType, setFilterType] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterDetails, setFilterDetails] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -22,7 +27,12 @@ export default function Tracking() {
 
     const [{ data: cats, error: catsErr }, { data: txns, error: txnErr }] = await Promise.all([
       supabase.from('categories').select('*').eq('user_id', user.id).order('sort_order'),
-      supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: true }),
+      supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: true })
+        .order('created_at', { ascending: true }),
     ])
 
     if (catsErr || txnErr) {
@@ -59,6 +69,32 @@ export default function Tracking() {
       return { ...t, runningBalance: balance }
     })
   }, [transactions])
+
+  const filterCategoryOptions = useMemo(
+    () => (filterType ? categories.filter((c) => c.type === filterType) : categories),
+    [categories, filterType],
+  )
+
+  const displayRows = useMemo(() => {
+    const detailsQuery = filterDetails.trim().toLowerCase()
+    const filtered = rowsWithBalance.filter((t) => {
+      if (filterType && t.type !== filterType) return false
+      if (filterCategory && t.category_id !== filterCategory) return false
+      if (detailsQuery && !(t.details ?? '').toLowerCase().includes(detailsQuery)) return false
+      if (filterDateFrom && t.date < filterDateFrom) return false
+      if (filterDateTo && t.date > filterDateTo) return false
+      return true
+    })
+    return [...filtered].reverse()
+  }, [rowsWithBalance, filterType, filterCategory, filterDetails, filterDateFrom, filterDateTo])
+
+  function clearFilters() {
+    setFilterType('')
+    setFilterCategory('')
+    setFilterDetails('')
+    setFilterDateFrom('')
+    setFilterDateTo('')
+  }
 
   function startEdit(t) {
     setEditingId(t.id)
@@ -205,6 +241,78 @@ export default function Tracking() {
         )}
       </form>
 
+      <div className="flex flex-wrap items-end gap-2 mb-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Type</label>
+          <select
+            value={filterType}
+            onChange={(e) => {
+              setFilterType(e.target.value)
+              setFilterCategory('')
+            }}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
+          >
+            <option value="">All</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+            <option value="savings">Savings</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
+          >
+            <option value="">All</option>
+            {filterCategoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">From</label>
+          <input
+            type="date"
+            value={filterDateFrom}
+            onChange={(e) => setFilterDateFrom(e.target.value)}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">To</label>
+          <input
+            type="date"
+            value={filterDateTo}
+            onChange={(e) => setFilterDateTo(e.target.value)}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
+          />
+        </div>
+        <div className="flex-1 min-w-[160px]">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Details contains</label>
+          <input
+            type="text"
+            value={filterDetails}
+            onChange={(e) => setFilterDetails(e.target.value)}
+            placeholder="Search…"
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="rounded-lg border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800"
+        >
+          Clear filters
+        </button>
+        <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
+          {displayRows.length} of {transactions.length} shown
+        </span>
+      </div>
+
       <div className="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg">
         <table className="w-full text-sm">
           <thead>
@@ -220,7 +328,7 @@ export default function Tracking() {
             </tr>
           </thead>
           <tbody>
-            {rowsWithBalance.map((t) => (
+            {displayRows.map((t) => (
               <tr key={t.id} className="border-t border-gray-100 dark:border-gray-800/60">
                 <td className="px-3 py-2 text-gray-900 dark:text-gray-100">{t.date}</td>
                 <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{t.effective_date}</td>
@@ -253,10 +361,10 @@ export default function Tracking() {
                 </td>
               </tr>
             ))}
-            {rowsWithBalance.length === 0 && (
+            {displayRows.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-6 text-center text-gray-400 dark:text-gray-500">
-                  No transactions yet.
+                  {transactions.length === 0 ? 'No transactions yet.' : 'No transactions match the current filters.'}
                 </td>
               </tr>
             )}
